@@ -1,0 +1,15 @@
+{
+    "manifest_version": 3,
+    "name": "Copy Tags and Paragraph",
+    "version": "1.0",
+    "description": "Extracts tags and paragraph content from a page and copies them to the clipboard.",
+    "permissions": ["scripting", "clipboardWrite"],
+    "host_permissions": ["https://lookup.ecarriercheck.com/*"],
+    "background": {
+      "service_worker": "background.js"
+    },
+    "action": {
+      "default_popup": "popup.html"
+    }
+  }
+  
