@@ -1,35 +1,68 @@
-chrome.action.onClicked.addListener((tab) => {
-  console.log("Extension icon clicked, executing content script...");
-  
-  // Check if the content script is being injected correctly
-  chrome.scripting.executeScript({
-    target: { tabId: tab.id },
-    func: processPageData,
-  }, () => {
-    if (chrome.runtime.lastError) {
-      console.log("Error executing script:", chrome.runtime.lastError);
+async function callGemini(data) {
+  const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent";
+  const apiKey = "AIzaSyBlWtovvLo0EQET3kvx9eKV6YG1lQ1p0hw"; // Replace with your actual API key
+
+  const payload = {
+    contents: [{
+      parts: [{
+        text: `Process the following data and just give me truck type name:\n${data}`
+      }]
+    }]
+  };
+
+  try {
+    const response = await fetch(`${url}?key=${apiKey}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error(`Gemini API Error (${response.status}):`, errorData);
+      throw new Error(`Error: ${errorData.error.message}`);
     }
-  });
-});
 
-// Function to extract page data (this runs in the context of the page)
-function processPageData() {
-  console.log('processPageData is executing...');
+    // Log the full response as a stringified object to inspect the structure
+    const responseData = await response.json();
+    console.log("Full Gemini API Response (Stringified):", JSON.stringify(responseData, null, 2));
 
-  // Extract tags
-  const tags = Array.from(document.querySelectorAll(".section-tags .tag"))
-    .map(tag => tag.textContent.trim())
-    .join(", ");
-  console.log('Extracted tags:', tags);
-  
-  // Extract paragraph content
-  const paragraph = Array.from(document.querySelectorAll(".inner-content p"))
-    .map(p => p.textContent.trim())
-    .join("\n");
-  console.log('Extracted paragraph:', paragraph);
+    // Check if the response contains the expected structure and extract text
+    if (responseData.candidates && responseData.candidates[0]?.content?.parts[0]?.text) {
+      const generatedText = responseData.candidates[0].content.parts[0].text;
+      console.log("Processed Text:", generatedText);
+      return generatedText;
+    } else {
+      console.error("Unexpected response structure:", JSON.stringify(responseData, null, 2));
+      return "Failed to process data.";
+    }
 
-  // Send extracted content to background script via message
-  chrome.runtime.sendMessage({ tags, paragraph }, (response) => {
-    console.log('Response from background script:', response);
-  });
+  } catch (error) {
+    console.error("Error during Gemini API call:", error);
+    return "Failed to process data.";
+  }
 }
+
+
+// Listen for messages from content scripts
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.tags && message.paragraph) {
+    console.log("Received extracted data:", message);
+
+    const extractedData = `Tags: ${message.tags}\nParagraph: ${message.paragraph}`;
+
+    callGemini(extractedData)
+      .then((processedData) => {
+        console.log("Processed data from Gemini:", processedData);
+        sendResponse({ processedData });
+      })
+      .catch((error) => {
+        console.error("Error processing data with Gemini:", error);
+        sendResponse({ error: "Failed to process data." });
+      });
+
+    return true; // Keeps the message port open for the asynchronous response
+  }
+});

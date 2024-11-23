@@ -3,14 +3,14 @@
   "name": "Truck Type Extractor",
   "version": "1.0",
   "description": "Extracts truck type from page and shows it in an alert.",
-  "permissions": [
-    "activeTab",
-    "scripting",
-    "storage"
-  ],
   "host_permissions": [
-    "https://lookup.ecarriercheck.com/*"
-  ],
+  "https://generativelanguage.googleapis.com/*"
+],
+"permissions": [
+  "activeTab",
+  "scripting",
+  "storage"
+],
   "background": {
     "service_worker": "background.js"
   },
