@@ -1,25 +1,20 @@
 {
-  "manifest_version": 3,
-  "name": "Truck Type Extractor",
+  "name": "Truck type",
   "version": "1.0",
-  "description": "Extracts truck type from page and shows it in an alert.",
+  "manifest_version": 3,
+  "permissions": [
+    "activeTab",
+    "storage"
+  ],
   "host_permissions": [
-  "https://generativelanguage.googleapis.com/*"
-],
-"permissions": [
-  "activeTab",
-  "scripting",
-  "storage"
-],
+    "https://generativelanguage.googleapis.com/*"
+  ],
   "background": {
     "service_worker": "background.js"
   },
-  "action": {
-    "default_popup": "popup.html"
-  },
   "content_scripts": [
     {
-      "matches": ["https://lookup.ecarriercheck.com/*"],
+      "matches": ["<all_urls>"],
       "js": ["content.js"]
     }
   ]

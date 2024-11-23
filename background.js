@@ -1,68 +1,53 @@
-async function callGemini(data) {
-  const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent";
-  const apiKey = "Replace with your actual API key"; // Replace with your actual API key
-
-  const payload = {
-    contents: [{
-      parts: [{
-        text: `Process the following data and just give me truck type name:\n${data}`
-      }]
-    }]
-  };
+async function sendToPythonAPI(data) {
+  console.log("Sending data to Python API:", data);
 
   try {
-    const response = await fetch(`${url}?key=${apiKey}`, {
+    const response = await fetch("http://localhost:5000/process-data", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(payload)
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
     });
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error(`Gemini API Error (${response.status}):`, errorData);
-      throw new Error(`Error: ${errorData.error.message}`);
-    }
+    const result = await response.json();
+    console.log("Python API Response:", result);
 
-    // Log the full response as a stringified object to inspect the structure
-    const responseData = await response.json();
-    console.log("Full Gemini API Response (Stringified):", JSON.stringify(responseData, null, 2));
-
-    // Check if the response contains the expected structure and extract text
-    if (responseData.candidates && responseData.candidates[0]?.content?.parts[0]?.text) {
-      const generatedText = responseData.candidates[0].content.parts[0].text;
-      console.log("Processed Text:", generatedText);
-      return generatedText;
-    } else {
-      console.error("Unexpected response structure:", JSON.stringify(responseData, null, 2));
-      return "Failed to process data.";
-    }
-
+    return result.processedData || "Unexpected response structure.";
   } catch (error) {
-    console.error("Error during Gemini API call:", error);
-    return "Failed to process data.";
+    console.error("Error in Python API communication:", error);
+    throw new Error("Failed to connect to Python API.");
   }
 }
 
 
-// Listen for messages from content scripts
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  console.log("Listener triggered. Message received:", message);
+
   if (message.tags && message.paragraph) {
-    console.log("Received extracted data:", message);
-
-    const extractedData = `Tags: ${message.tags}\nParagraph: ${message.paragraph}`;
-
-    callGemini(extractedData)
+    console.log("Extracted data is valid. Sending to API...");
+    
+    sendToPythonAPI({ tags: message.tags, paragraph: message.paragraph })
       .then((processedData) => {
-        console.log("Processed data from Gemini:", processedData);
-        sendResponse({ processedData });
+        console.log("Data processed successfully:", processedData);
+        try {
+          sendResponse({ processedData });
+          console.log("Response sent successfully.");
+        } catch (err) {
+          console.error("Error while sending response:", err);
+        }
       })
       .catch((error) => {
-        console.error("Error processing data with Gemini:", error);
-        sendResponse({ error: "Failed to process data." });
+        console.error("Error while processing data:", error);
+        try {
+          sendResponse({ error: "Failed to process data." });
+          console.log("Error response sent.");
+        } catch (err) {
+          console.error("Error while sending error response:", err);
+        }
       });
 
-    return true; // Keeps the message port open for the asynchronous response
+    return true; // Critical to keep the port open
   }
+
+  console.log("Invalid message structure. No response sent.");
 });
