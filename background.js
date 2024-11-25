@@ -1,53 +1,34 @@
-async function sendToPythonAPI(data) {
-  console.log("Sending data to Python API:", data);
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  console.log("Message received in background script:", message);
 
-  try {
-    const response = await fetch("http://localhost:5000/process-data", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
+  const payload = {
+    representatives: message.representatives || "No representatives provided",  // Ensure there's a fallback value
+    tags: message.tags || "No tags provided",  // Ensure there's a fallback value
+    paragraph: message.paragraph || "No paragraph provided", // Ensure paragraph exists
+  };
+
+  console.log("Forwarding data to backend:", payload);
+
+  // Send the data to your Node.js API
+  fetch("http://localhost:5000/process-data", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  })
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error(`Backend API returned status ${response.status}`);
+      }
+      return response.json();
+    })
+    .then((data) => {
+      console.log("Response from backend API:", data);
+      sendResponse({ processedData: data.result });
+    })
+    .catch((error) => {
+      console.error("Error communicating with backend:", error);
+      sendResponse({ error: "Failed to process data via backend." });
     });
 
-    const result = await response.json();
-    console.log("Python API Response:", result);
-
-    return result.processedData || "Unexpected response structure.";
-  } catch (error) {
-    console.error("Error in Python API communication:", error);
-    throw new Error("Failed to connect to Python API.");
-  }
-}
-
-
-
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  console.log("Listener triggered. Message received:", message);
-
-  if (message.tags && message.paragraph) {
-    console.log("Extracted data is valid. Sending to API...");
-    
-    sendToPythonAPI({ tags: message.tags, paragraph: message.paragraph })
-      .then((processedData) => {
-        console.log("Data processed successfully:", processedData);
-        try {
-          sendResponse({ processedData });
-          console.log("Response sent successfully.");
-        } catch (err) {
-          console.error("Error while sending response:", err);
-        }
-      })
-      .catch((error) => {
-        console.error("Error while processing data:", error);
-        try {
-          sendResponse({ error: "Failed to process data." });
-          console.log("Error response sent.");
-        } catch (err) {
-          console.error("Error while sending error response:", err);
-        }
-      });
-
-    return true; // Critical to keep the port open
-  }
-
-  console.log("Invalid message structure. No response sent.");
+  return true; // Keep the message port open for async response
 });
